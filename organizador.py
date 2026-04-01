@@ -1,62 +1,71 @@
 from pathlib import Path
 import shutil
+from datetime import datetime
+import time
 
-from pathlib import Path
-import shutil
-
-
-def organizar_arquivos():
-    pasta_origem = Path("origem")
-    """ 
-    Também podemos passar um caminho para uma pasta fora do diretório do script, por exemplo a de Downloads
-    #PASTA_ORIGEM = Path(r"C:\Users\SeuUsuario\Downloads")
-    
-    """
-    
-    mapeamento = {
-        ".jpg": "Imagens",
-        ".jpeg": "Imagens",
-        ".png": "Imagens",
-
-        ".pdf": "Documentos",
-        ".docx": "Documentos",
-        ".txt": "Documentos",
-
-        ".mp4": "Videos",
-        ".mkv": "Videos",
-
-        ".zip": "Compactados",
-        ".rar": "Compactados"
-    }
-
-    
-    for item in pasta_origem.iterdir():
-        if item.is_file():
-            extensao = item.suffix.lower()
-
-            
-            if extensao in mapeamento:
-                pasta_destino = pasta_origem / mapeamento[extensao]
-
-                
-                pasta_destino.mkdir(exist_ok=True)
-
-                destino_final = pasta_destino / item.name
-
-                # Evita sobrescrever arquivos com o mesmo nome
-                contador = 1
-                while destino_final.exists():
-                    novo_nome = f"{item.stem}_{contador}{item.suffix}"
-                    destino_final = pasta_destino / novo_nome
-                    contador += 1
-
-                
-                shutil.move(str(item), str(destino_final))
-                print(f"Movido: {item.name} → {destino_final}")
-
-            else:
-                print(f"Ignorado (extensão não mapeada): {item.name}")
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
 
 
-if __name__ == "__main__":
-    organizar_arquivos()
+PASTA_ORIGEM = Path("origem")
+
+MAPEAMENTO = {
+    ".jpg": "Imagens",
+    ".jpeg": "Imagens",
+    ".png": "Imagens",
+    ".pdf": "Documentos",
+    ".docx": "Documentos",
+    ".txt": "Documentos",
+    ".mp4": "Videos",
+    ".mkv": "Videos",
+    ".zip": "Compactados",
+    ".rar": "Compactados",
+}
+
+
+def log(msg):
+    with open("organizador.log", "a", encoding="utf-8") as f:
+        f.write(f"[{datetime.now()}] {msg}\n")
+
+
+def organizar_arquivo(path: Path):
+    if not path.is_file():
+        return
+
+    ext = path.suffix.lower()
+    if ext not in MAPEAMENTO:
+        return
+
+    destino = PASTA_ORIGEM / MAPEAMENTO[ext]
+    destino.mkdir(exist_ok=True)
+
+    destino_final = destino / path.name
+    contador = 1
+    while destino_final.exists():
+        destino_final = destino / f"{path.stem}_{contador}{path.suffix}"
+        contador += 1
+
+    shutil.move(str(path), str(destino_final))
+    log(f"Movido: {path.name}")
+
+
+class Handler(FileSystemEventHandler):
+    def on_created(self, event):
+        if not event.is_directory:
+            time.sleep(1)
+            organizar_arquivo(Path(event.src_path))
+
+
+def start_monitor():
+    observer = Observer()
+    observer.schedule(Handler(), str(PASTA_ORIGEM), recursive=False)
+    observer.start()
+    log("Monitoramento iniciado")
+
+    try:
+        while True:
+            time.sleep(1)
+    finally:
+        observer.stop()
+        observer.join()
+        log("Monitoramento finalizado")
