@@ -7,7 +7,7 @@ from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
 
-PASTA_ORIGEM = Path("origem")
+PASTA_ORIGEM = Path(r"C:\Users\jovem\Downloads")
 
 MAPEAMENTO = {
     ".jpg": "Imagens",
@@ -69,3 +69,7 @@ def start_monitor():
         observer.stop()
         observer.join()
         log("Monitoramento finalizado")
+
+if __name__ == "__main__":
+    log("organizador.py executado diretamente")
+    start_monitor()
